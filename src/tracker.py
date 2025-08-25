@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 from src.extractor import PDFExtractor
-from src.parser import AmendmentParser
+from src.ai_parser import generate_amendment_summary
 
-class AmendmentTracker:
+class AIAmendmentTracker:
     def __init__(self, base_pdf: str, amendment_pdfs: list, output_dir="output/json"):
         self.base_pdf = base_pdf
         self.amendment_pdfs = amendment_pdfs
@@ -13,22 +13,18 @@ class AmendmentTracker:
 
     def run(self):
         base_text = self.extractor.extract_text(self.base_pdf)
-        all_changes = []
+        results = []
 
         for amendment_pdf in self.amendment_pdfs:
             amendment_text = self.extractor.extract_text(amendment_pdf)
-            changes = AmendmentParser.detect_amendments(base_text, amendment_text)
+            summary = generate_amendment_summary(base_text, amendment_text)
+            summary["base_act"] = Path(self.base_pdf).name
+            summary["amendment"] = Path(amendment_pdf).name
 
-            result = {
-                "base_act": Path(self.base_pdf).name,
-                "amendment": Path(amendment_pdf).name,
-                "changes": changes
-            }
-
+            # Save JSON output
             output_path = self.output_dir / f"{Path(amendment_pdf).stem}_changes.json"
             with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(result, f, indent=4, ensure_ascii=False)
+                json.dump(summary, f, indent=4, ensure_ascii=False)
 
-            all_changes.extend(changes)
-
-        return all_changes
+            results.append(summary)
+        return results
